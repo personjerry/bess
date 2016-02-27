@@ -1,0 +1,5 @@
+f = FCR(size=0, bucket=0)
+
+p = Port(driver='PMD', port_id=0)
+
+PortInc(port=p) -> f -> Probe() -> PortOut(port=p)
