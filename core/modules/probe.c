@@ -26,7 +26,12 @@ struct probe_priv {
 };
 
 struct report {
-    struct flow flow;
+    uint64_t src_addr;
+    uint64_t dst_addr;
+    uint64_t src_port;
+    uint64_t dst_port;
+    uint64_t  protocol;
+
     uint32_t probe_id;
     double time_stamp;
 };
@@ -98,11 +103,11 @@ static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
 
         if (rte_mempool_get(priv->mp, (void**)&tbl[n]) < 0)
             continue;
-        tbl[n]->flow.src_addr = ip->src_addr;
-        tbl[n]->flow.dst_addr = ip->dst_addr;
-        tbl[n]->flow.src_port = udp->src_port;
-        tbl[n]->flow.dst_port = udp->dst_port;
-        tbl[n]->flow.protocol = ip->next_proto_id;
+        tbl[n]->src_addr = ip->src_addr;
+        tbl[n]->dst_addr = ip->dst_addr;
+        tbl[n]->src_port = udp->src_port;
+        tbl[n]->dst_port = udp->dst_port;
+        tbl[n]->protocol = ip->next_proto_id;
         tbl[n]->probe_id = priv->id;
         tbl[n++]->time_stamp = now;
     }
