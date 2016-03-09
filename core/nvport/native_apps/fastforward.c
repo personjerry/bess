@@ -25,6 +25,10 @@ struct sn_port *out_port;
 // Cycles to stall for
 uint64_t stalled_cycles = 0;
 
+// Chance out of 100 to drop packet
+
+uint64_t drop_percentage = 0;
+
 // Print stats to stdout?
 int print_stats = 0;
 
@@ -75,18 +79,24 @@ static int run_fastforward(void)
 				stats.rx_bytes += snb_total_len(pkts[i]);
 		}
 
-		if (stalled_cycles) {
-			uint64_t start, end;
-			start = rte_rdtsc();
-			end = start;
-			while (end - start < stalled_cycles)
-				end = rte_rdtsc();
+		// first check if nonzero drop_percentage for speed
+		if (!drop_percentage || drop_percentage <= rand() % 100) {
+
+			if (stalled_cycles) {
+				uint64_t start, end;
+				start = rte_rdtsc();
+				end = start;
+				while (end - start < stalled_cycles)
+					end = rte_rdtsc();
+			}
+
+			sent = sn_send_pkts(out_port, rxq % out_port->num_rxq, pkts, received);
+
+			stats.tx_pkts += sent;
+			stats.tx_batch++;
+		} else {
+			sent = 0;
 		}
-
-		sent = sn_send_pkts(out_port, rxq % out_port->num_rxq, pkts, received);
-
-		stats.tx_pkts += sent;
-		stats.tx_batch++;
 
 		/* free unsent packets */
 		for (i = sent; i < received; i++) {
@@ -252,7 +262,7 @@ int main(int argc, char **argv)
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "c:i:o:r:n:v:peys")) != -1) {
+	while ((opt = getopt(argc, argv, "c:i:o:r:n:v:d:peys")) != -1) {
 		switch (opt) {
 		case 'c':
 			core = atoi(optarg);
@@ -272,6 +282,9 @@ int main(int argc, char **argv)
 				show_usage(argv[0]);
 				exit(1);
 			}
+			break;
+		case 'd':
+			drop_percentage = atoi(optarg);
 			break;
 		case 'p':
 			print_stats = 1;
@@ -334,6 +347,8 @@ int main(int argc, char **argv)
 		}
 	}
 
+	// initialize random
+	srand(time(NULL));
 
 	// Main run loop
 	for (;; loop_count++) {
