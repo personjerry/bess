@@ -32,6 +32,7 @@ struct report {
     uint64_t dst_port;
     uint64_t  protocol;
 
+    uint32_t prev_probe_id;
     uint32_t probe_id;
     double time_stamp;
 };
@@ -93,7 +94,7 @@ static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
             ip->next_proto_id != 6)
             continue;
 
-        if ((ip->packet_id & rte_cpu_to_be_16(0xBEEF)) == 0)
+        if ((ip->packet_id & rte_cpu_to_be_16(0x00FF)) != rte_cpu_to_be_16(0x00E2))
             continue;
 
         int ihl = (ip->version_ihl & IPV4_HDR_IHL_MASK) *
@@ -103,12 +104,15 @@ static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
 
         if (rte_mempool_get(priv->mp, (void**)&tbl[n]) < 0)
             continue;
+
         tbl[n]->src_addr = ip->src_addr;
         tbl[n]->dst_addr = ip->dst_addr;
         tbl[n]->src_port = udp->src_port;
         tbl[n]->dst_port = udp->dst_port;
         tbl[n]->protocol = ip->next_proto_id;
         tbl[n]->probe_id = priv->id;
+        tbl[n]->prev_probe_id = rte_be_to_cpu_16(ip->packet_id) >> 8;
+        ip->packet_id = (rte_cpu_to_be_16(0x00FF) & ip->packet_id) | rte_cpu_to_be_16(priv->id << 8);
         tbl[n++]->time_stamp = now;
     }
 

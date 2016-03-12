@@ -323,7 +323,7 @@ int main(int argc, char **argv)
 #define PROF_RING_NAME "ring_prof"
 #define PROF_RING_SIZE (1<<12)
     /* Create mempool */
-    struct rte_mempool *mp = rte_mempool_create(PROF_MP_NAME, PROF_MP_SIZE, 192,
+    struct rte_mempool *mp = rte_mempool_create(PROF_MP_NAME, PROF_MP_SIZE, 224,
                            PROF_MP_CACHE_SIZE,
                            0,
                            NULL, NULL,

@@ -11,6 +11,7 @@ struct report {
     uint64_t dst_port;
     uint64_t  protocol;
 
+    uint32_t prev_probe_id;
     uint32_t probe_id;
     double time_stamp;
 };

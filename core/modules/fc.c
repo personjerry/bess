@@ -164,7 +164,7 @@ static void fc_process_batch(struct module *m, struct pkt_batch *batch)
             }
             if ((j = *n) < SAMPLE_SIZE || 
                 (j = rand_fast_range(&priv->seed, *n)) < SAMPLE_SIZE) {
-                *pkt_id = rte_cpu_to_be_16(0xBEEF);
+                *pkt_id = rte_cpu_to_be_16(0x00E2);
             }
             *n = *n + 1;
         }
