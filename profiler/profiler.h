@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 struct report {
-    uint64_t src_addr;
-    uint64_t dst_addr;
+    uint32_t src_addr;
+    uint32_t dst_addr;
     uint64_t src_port;
     uint64_t dst_port;
     uint64_t  protocol;

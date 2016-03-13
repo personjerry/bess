@@ -6,9 +6,9 @@ package main
 import "C"
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
 	"github.com/melvinw/go-dpdk"
@@ -19,10 +19,15 @@ const ringName = "ring_prof"
 
 type flow struct {
 	srcAddr uint
+	srcMask uint
+
 	dstAddr uint
+	dstMask uint
+
 	srcPort uint
 	dstPort uint
-	proto   uint
+
+	proto uint
 }
 
 type meta struct {
@@ -45,19 +50,8 @@ type edge struct {
 type adj map[uint]map[uint]*edge
 
 type policy struct {
-	paths map[flow][]uint
-}
-
-func dfs(A adj, u uint) []*edge {
-	if len(A[u]) == 0 {
-		return []*edge{}
-	}
-
-	var v uint
-	for k := range A[u] {
-		v = k
-	}
-	return append(dfs(A, v), A[u][v])
+	connections map[uint]map[uint]struct{}
+	queries     map[flow][][]uint
 }
 
 func analyze(rChan chan report, p *policy) {
@@ -79,21 +73,27 @@ func analyze(rChan chan report, p *policy) {
 		}
 		e.timeStamps = append(e.timeStamps, r.m.timeStamp)
 
-		path := dfs(A, 0)
-		fmt.Println("Flow: ", r.f, " path:")
-        for _, e := range path {
-            fmt.Println("\t", *e)
-        }
-		if reflect.DeepEqual(path, p.paths[r.f]) {
-			fmt.Println("Flow : ", r.f, " survived. Path: ", path)
-			break
+		for f, paths := range p.queries {
+			if r.f.srcAddr&f.srcMask == f.srcAddr {
+				for _, p := range paths {
+					succ := true
+					u := p[len(p)-1]
+					for i := len(p) - 2; i >= 0; i-- {
+						v := p[i]
+						if _, ok := A[u][v]; !ok {
+							succ = false
+							break
+						}
+						u = v
+					}
+					if succ {
+						fmt.Println("Flow", r.f, "matched query path", p)
+					}
+				}
+				break
+			}
 		}
 	}
-}
-
-func parsePolicy(policyFile string) *policy {
-	p := &policy{}
-	return p
 }
 
 func main() {
@@ -131,7 +131,13 @@ func main() {
 	tbl := dpdk.GetCArray(n)
 
 	rChan := make(chan report)
-	p := parsePolicy(profArgs[0])
+	p, err := parsePolicy(profArgs[0])
+	if err != nil {
+		fmt.Println("Failed to parse policy spec: ", err)
+		return
+	}
+	fmt.Println(p)
+
 	go analyze(rChan, p)
 
 	for {
@@ -140,8 +146,23 @@ func main() {
 		for _, x := range reports {
 			r := (*C.struct_report)(x)
 			if r != nil {
-				f := flow{uint(r.src_addr), uint(r.dst_addr), uint(r.src_port),
-					uint(r.dst_port), uint(r.protocol)}
+				sABytes := make([]byte, 4)
+				binary.LittleEndian.PutUint32(sABytes, uint32(r.src_addr))
+				dABytes := make([]byte, 4)
+				binary.LittleEndian.PutUint32(dABytes, uint32(r.dst_addr))
+				sPBytes := make([]byte, 2)
+				binary.LittleEndian.PutUint16(sPBytes, uint16(r.src_port))
+				dPBytes := make([]byte, 2)
+				binary.LittleEndian.PutUint16(dPBytes, uint16(r.dst_port))
+				f := flow{
+					uint(binary.BigEndian.Uint32(sABytes)),
+					0xFFFFFFFF,
+					uint(binary.BigEndian.Uint32(dABytes)),
+					0xFFFFFFFF,
+					uint(binary.BigEndian.Uint16(sPBytes)),
+					uint(binary.BigEndian.Uint16(dPBytes)),
+					uint(r.protocol),
+				}
 				m := meta{uint(r.prev_probe_id), uint(r.probe_id),
 					float32(r.time_stamp)}
 				rChan <- report{f, m}

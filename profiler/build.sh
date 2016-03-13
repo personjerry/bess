@@ -23,4 +23,4 @@ go get github.com/melvinw/go-dpdk
 export CGO_LDFLAGS=$OLD_LDFLAGS
 export CGO_CFLAGS=$OLD_CFLAGS
 
-go build profiler.go
+make
