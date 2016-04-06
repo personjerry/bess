@@ -2,4 +2,16 @@ f = FCR(size=0, bucket=0)
 
 p = Port(driver='PMD', port_id=0)
 
-PortInc(port=p) -> f -> Probe(id=1) -> Probe(id=2) -> PortOut(port=p)
+PortInc(port=p) \
+-> f \
+-> Probe(id=1) \
+-> Probe(id=2) \
+-> Probe(id=3) \
+-> Probe(id=4) \
+-> Probe(id=5) \
+-> Probe(id=6) \
+-> Probe(id=7) \
+-> Probe(id=8) \
+-> Probe(id=9) \
+-> Probe(id=10) \
+-> PortOut(port=p)

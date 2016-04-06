@@ -47,7 +47,7 @@ type edge struct {
 	timeStamps []float32
 }
 
-type adj map[uint]map[uint]*edge
+type adj map[uint]map[uint][]report
 
 type policy struct {
 	connections map[uint]map[uint]struct{}
@@ -55,23 +55,19 @@ type policy struct {
 }
 
 func analyze(rChan chan report, p *policy) {
-	flows := make(map[flow]adj)
+	A := make(adj)
 	for r := range rChan {
-		if _, ok := flows[r.f]; !ok {
-			flows[r.f] = make(adj)
-		}
-		A := flows[r.f]
-
-		if A[r.m.prevProbe] == nil {
-			A[r.m.prevProbe] = make(map[uint]*edge)
+		u := r.m.prevProbe
+		v := r.m.probe
+		if _, ok := A[u]; !ok {
+			A[u] = make(map[uint][]report)
 		}
 
-		e := A[r.m.prevProbe][r.m.probe]
-		if e == nil {
-			e = &edge{r.m.prevProbe, r.m.probe, []float32{}}
-			A[r.m.prevProbe][r.m.probe] = e
+		if _, ok := A[u][v]; !ok {
+			A[u][v] = make([]report, 0)
 		}
-		e.timeStamps = append(e.timeStamps, r.m.timeStamp)
+
+		A[u][v] = append(A[u][v], r)
 
 		for f, paths := range p.queries {
 			if r.f.srcAddr&f.srcMask == f.srcAddr {
@@ -87,7 +83,7 @@ func analyze(rChan chan report, p *policy) {
 						u = v
 					}
 					if succ {
-						fmt.Println("Flow", r.f, "matched query path", p)
+						fmt.Println("Flow", r.f, "matched query path", p, " @ t =", r.m.timeStamp)
 					}
 				}
 				break

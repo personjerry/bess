@@ -21,6 +21,8 @@
 struct probe_priv {
     int id;
     unsigned n;
+    double start;
+    uint64_t n_pkts, n_drops;
     struct rte_mempool *mp;
     struct rte_ring *ring;
 };
@@ -37,12 +39,19 @@ struct report {
     double time_stamp;
 };
 
+static inline double now_sec(void) {
+    return rte_get_tsc_cycles() / (double) rte_get_tsc_hz();
+}
+
 static struct snobj *probe_init(struct module *m, struct snobj *arg) {
 	struct probe_priv *priv = get_priv(m);
 	int id = snobj_eval_int(arg, "id");
 	assert(priv != NULL);
     priv->id = id;
     priv->n = 0;
+    priv->n_pkts = 0;
+    priv->n_drops = 0;
+    priv->start = now_sec();
 
     priv->mp = rte_mempool_lookup(MP_NAME);
     if (priv->mp == NULL)
@@ -59,17 +68,6 @@ static void probe_deinit(struct module *m) {
     return;
 }
 
-static inline double now_sec(void) {
-    return rte_get_tsc_cycles() / (double) rte_get_tsc_hz();
-}
-
-static void ship_burst(struct report **tbl, struct probe_priv *priv, uint8_t n) {
-    if (n == 0) {
-        return;
-    }
-    n -= rte_ring_enqueue_burst(priv->ring, (void**)tbl, n);
-}
-
 static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
 	struct probe_priv *priv = get_priv(m);
     struct report *tbl[batch->cnt]; 
@@ -78,9 +76,15 @@ static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
 	struct udp_hdr *udp;
     uint8_t i, n = 0;
 
-    //while (rte_mempool_get_bulk(priv->mp, (void**)tbl, batch->cnt) < 0) {}
-
     double now = now_sec();
+
+    if (rte_mempool_get_bulk(priv->mp, (void**)tbl, batch->cnt) != 0) {
+        if (rte_ring_dequeue_bulk(priv->ring, (void**)tbl, batch->cnt) != 0) {
+            goto done;
+        }
+        priv->n_drops += batch->cnt;
+    }
+
 	for (i = 0; i < batch->cnt; i++) {
 		struct snbuf *snb = batch->pkts[i];
         eth = (struct ether_hdr*)snb_head_data(snb);
@@ -102,9 +106,6 @@ static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
 
         udp = (struct udp_hdr*)(((char*)ip) + ihl);
 
-        if (rte_mempool_get(priv->mp, (void**)&tbl[n]) < 0)
-            continue;
-
         tbl[n]->src_addr = ip->src_addr;
         tbl[n]->dst_addr = ip->dst_addr;
         tbl[n]->src_port = udp->src_port;
@@ -116,8 +117,18 @@ static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
         tbl[n++]->time_stamp = now;
     }
 
-    ship_burst(tbl, priv, n);
+    rte_ring_enqueue_burst(priv->ring, (void**)tbl, n);
+    rte_mempool_put_bulk(priv->mp, (void**)tbl + n, batch->cnt - n);
+    priv->n_pkts += n;
 
+done:
+    if ((now - priv->start) >= 1.0f) {
+        printf("%lu %lu %.9f\n", priv->n_drops, priv->n_pkts,
+               priv->n_drops/(double)priv->n_pkts);
+        priv->start = now;
+        priv->n_pkts = 0;
+        priv->n_drops = 0;
+    }
 	run_next_module(m, batch);
 }
 
