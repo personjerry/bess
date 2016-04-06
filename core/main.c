@@ -315,6 +315,31 @@ int main(int argc, char **argv)
 
 	init_dpdk(argv[0]);
 	init_mempool();
+#if 1
+#define PROF_MP_NAME "mp_prof"
+#define PROF_MP_SIZE (1<<24)
+#define PROF_MP_CACHE_SIZE (512)
+
+#define PROF_RING_NAME "ring_prof"
+#define PROF_RING_SIZE (1<<24)
+    /* Create mempool */
+    struct rte_mempool *mp = rte_mempool_create(PROF_MP_NAME, PROF_MP_SIZE, 224,
+                           PROF_MP_CACHE_SIZE,
+                           0,
+                           NULL, NULL,
+                           NULL, NULL,
+                           rte_socket_id(),
+                           0);
+    if (mp == NULL) {
+        rte_exit(EXIT_FAILURE, "Failed to allocate profiler mempool\n");
+    }
+
+    /* Create ring */
+    struct rte_ring *ring = rte_ring_create(PROF_RING_NAME, PROF_RING_SIZE, rte_socket_id(), RING_F_SC_DEQ);
+    if (ring == NULL) {
+        rte_exit(EXIT_FAILURE, "Failed to allocate profiler ring\n");
+    }
+#endif
 	init_drivers();
 
 	setup_master(opts->port);

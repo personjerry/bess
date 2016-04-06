@@ -1,0 +1,24 @@
+package main
+
+type Policy Peg {
+}
+
+Policy <- ws Connection+ ws Check+ !.
+
+Connection <- probe ws '->' ws probe ws
+
+Check <- Flow ws ':' ws Chain '\n'
+
+Chain <- probe ws '->' ws Chain / probe
+
+Flow <- '(' prefix delim prefix delim probe delim probe delim probe ws ')'
+
+prefix <- [0-9]+ '.' [0-9]+ '.' [0-9]+ '.' [0-9]+ mask?
+
+mask <- '/' [0-9]+
+
+probe <- [0-9]+
+
+delim <- ws ',' ws
+
+ws <- [ \t\n\r]*
