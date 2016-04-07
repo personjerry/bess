@@ -1,0 +1,24 @@
+f = FCR(size=0, bucket=0)
+sink = Sink()
+delay0 = Port(driver='ZeroCopyVPort') # insert fastforward -r (delay) NF here
+delay1 = Port(driver='ZeroCopyVPort') # insert fastforward -r (delay) NF here
+drop0 = Port(driver='ZeroCopyVPort') # insert fastforward -d (drop) NF here
+drop1 = Port(driver='ZeroCopyVPort') # insert fastforward -d (drop) NF here
+
+Source() -> f -> Probe(id=1) -> rr1::Roundrobin(gates=4)
+rr1[0] -> Probe(id=3) -> sink 
+rr1[1] -> Probe(id=4) -> Probe(id=5) -> Timestamp() -> Probe(id=6) -> sink
+rr1[2] -> Probe(id=7) -> PortOut(port=delay0) 
+PortInc(port=delay0) -> Probe(id=8) -> PortOut(port=drop0)
+PortInc(port=drop0) -> Probe(id=9) -> sink
+rr1[3] -> Probe(id=10) -> PortOut(port=drop1) 
+PortInc(port=drop1) -> Probe(id=11) -> PortOut(port=delay1)
+PortInc(port=delay1) -> Probe(id=12) -> sink
+
+# In case it's not clear (`show pipeline` not helpful),
+# this is a roundrobin to one of four options (sprinkled throughout with probes):
+# 1. sink
+# 2. timestamp -> sink
+# 3. out(delay) -> in -> out(drop) -> in -> sink
+# 3. out(drop) -> in -> out(delay) -> in -> sink
+
