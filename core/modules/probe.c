@@ -19,7 +19,7 @@
 #define BURST_SIZE (32)
 
 struct probe_priv {
-    int id;
+    int id, enabled;
     unsigned n;
     double start;
     uint64_t n_pkts, n_drops;
@@ -43,15 +43,19 @@ static inline double now_sec(void) {
     return rte_get_tsc_cycles() / (double) rte_get_tsc_hz();
 }
 
-static struct snobj *probe_init(struct module *m, struct snobj *arg) {
+static struct snobj *
+probe_init(struct module *m, struct snobj *arg)
+{
 	struct probe_priv *priv = get_priv(m);
 	int id = snobj_eval_int(arg, "id");
+	int enabled = snobj_eval_int(arg, "enabled");
 	assert(priv != NULL);
     priv->id = id;
     priv->n = 0;
     priv->n_pkts = 0;
     priv->n_drops = 0;
     priv->start = now_sec();
+    priv->enabled = enabled;
 
     priv->mp = rte_mempool_lookup(MP_NAME);
     if (priv->mp == NULL)
@@ -64,11 +68,28 @@ static struct snobj *probe_init(struct module *m, struct snobj *arg) {
 	return NULL;
 }
 
-static void probe_deinit(struct module *m) {
+static void
+probe_deinit(struct module *m)
+{
     return;
 }
 
-static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
+struct snobj*
+probe_query(struct module *m, struct snobj *q)
+{
+	struct probe_priv *priv = get_priv(m);
+	assert(priv != NULL);
+
+	int enabled = snobj_eval_int(q, "enabled");
+    priv->enabled = enabled;
+	struct snobj *r = snobj_map();
+    snobj_map_set(r, "success", snobj_int(1));
+    return r;
+}
+
+static void
+probe_process_batch(struct module *m, struct pkt_batch *batch)
+{
 	struct probe_priv *priv = get_priv(m);
     struct report *tbl[batch->cnt]; 
     struct ether_hdr *eth;
@@ -77,6 +98,10 @@ static void probe_process_batch(struct module *m, struct pkt_batch *batch) {
     uint8_t i, n = 0;
 
     double now = now_sec();
+
+    if (priv->enabled == 0) {
+        goto done;
+    }
 
     if (rte_mempool_get_bulk(priv->mp, (void**)tbl, batch->cnt) != 0) {
         if (rte_ring_dequeue_bulk(priv->ring, (void**)tbl, batch->cnt) != 0) {
@@ -138,6 +163,7 @@ static const struct mclass probe = {
 	.init		= probe_init,
 	.deinit		= probe_deinit,
 	.process_batch  = probe_process_batch,
+	.query  = probe_query,
 };
 
 ADD_MCLASS(probe)
