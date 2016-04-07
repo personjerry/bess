@@ -11,32 +11,19 @@
 #include <rte_ip.h>
 #include <rte_udp.h>
 
+#include "../../profiler/profiler.h"
+
 #define MP_NAME "mp_prof"
-#define MP_SIZE (1<<16)
-
 #define RING_NAME "ring_prof"
-
-#define BURST_SIZE (32)
 
 struct probe_priv {
     int id, enabled;
     unsigned n;
     double start;
     uint64_t n_pkts, n_drops;
+    char probe_name[32];
     struct rte_mempool *mp;
     struct rte_ring *ring;
-};
-
-struct report {
-    uint32_t src_addr;
-    uint32_t dst_addr;
-    uint64_t src_port;
-    uint64_t dst_port;
-    uint64_t  protocol;
-
-    uint32_t prev_probe_id;
-    uint32_t probe_id;
-    double time_stamp;
 };
 
 static inline double now_sec(void) {
