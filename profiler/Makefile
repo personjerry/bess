@@ -1,6 +1,3 @@
-#profiler: policy.peg.go profiler.go
-#	go build
-
 CC=gcc
 
 DPDK_INC_DIR = ${RTE_SDK}/${RTE_TARGET}/include
@@ -14,4 +11,7 @@ CFLAGS += -std=gnu99 -g3 -ggdb3 -Ofast -m64 -march=native \
  	  -I${DPDK_INC_DIR} -D_GNU_SOURCE
 
 profiler: profiler.c
-	${CC} ${CFLAGS} ${LDFLAGS} -o profiler profiler.c ${LIBS}
+	${CC} ${CFLAGS} ${LDFLAGS} -o $@ $^ ${LIBS}
+
+clean:
+	rm -f profiler
