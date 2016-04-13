@@ -4,6 +4,17 @@
 #include <unistd.h>
 #include <stdint.h>
 
+#include <rte_config.h>
+#include <rte_eal.h>
+#include <rte_launch.h>
+#include <rte_lcore.h>
+#include <rte_ring.h>
+#include <rte_mempool.h>
+#include <rte_byteorder.h>
+#include <rte_cycles.h>
+
+#define BURST_SIZE 32
+
 struct report {
     uint32_t src_addr;
     uint32_t dst_addr;
@@ -16,4 +27,9 @@ struct report {
     double time_stamp;
 };
 
+static double
+get_time_msec(void)
+{
+    return 1000 * (rte_get_tsc_cycles() / (double) rte_get_tsc_hz());
+}
 #endif
