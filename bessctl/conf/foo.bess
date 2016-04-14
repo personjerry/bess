@@ -1,17 +1,21 @@
+n = int($N!'2')
+k = int($K!'2')
+assert(n >= k)
+
 f = FCR(size=0, bucket=0)
-
 p = Port(driver='PMD', port_id=0)
+pr = []
 
-PortInc(port=p) \
--> f \
--> Probe(id=1) \
--> Probe(id=2) \
--> Probe(id=3) \
--> Probe(id=4) \
--> Probe(id=5) \
--> Probe(id=6) \
--> Probe(id=7) \
--> Probe(id=8) \
--> Probe(id=9) \
--> Probe(id=10) \
--> PortOut(port=p)
+for i in range(n):
+    id = i + 1
+    pr.append(Probe(id=id))
+
+PortInc(port=p) -> f -> pr[0]
+
+for i in range(n - 1):
+    pr[i] -> pr[i+1]
+
+pr[n - 1] -> PortOut(port=p)
+
+for i in range(k):
+    pr[i].query(enabled=1)

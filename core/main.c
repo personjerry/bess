@@ -19,6 +19,8 @@
 #include "driver.h"
 #include "log.h"
 
+#include "../profiler/profiler.h"
+
 const struct global_opts global_opts;
 static struct global_opts *opts = (struct global_opts *)&global_opts;
 
@@ -323,7 +325,7 @@ int main(int argc, char **argv)
 #define PROF_RING_NAME "ring_prof"
 #define PROF_RING_SIZE (1<<24)
     /* Create mempool */
-    struct rte_mempool *mp = rte_mempool_create(PROF_MP_NAME, PROF_MP_SIZE, 224,
+    struct rte_mempool *mp = rte_mempool_create(PROF_MP_NAME, PROF_MP_SIZE, sizeof(struct report),
                            PROF_MP_CACHE_SIZE,
                            0,
                            NULL, NULL,
